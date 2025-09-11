@@ -1,0 +1,2650 @@
+{
+  "datasets": [
+    {
+      "name": "36f1eb84",
+      "displayName": "shares",
+      "queryLines": [
+        "SELECT * FROM system.information_schema.shares"
+      ]
+    },
+    {
+      "name": "ee4342c9",
+      "displayName": "Last 7 Days Usage",
+      "queryLines": [
+        "select *, regexp_extract(response.error_message, r\":(.*?):\", 1) errors, response.status_code status_code,\n",
+        "request_params.share_name, request_params.recipient_name, request_params.recipient_authentication_type share_type, request_params.is_ip_access_denied  from system.access.audit where event_date >= date_sub(current_date(), 7) and service_name = \"unityCatalog\" and action_name in ('deltaSharingListShares', 'deltaSharingGetShare','deltaSharingListSchemas', 'deltaSharingListAllTables', 'deltaSharingListTables',\n",
+        "'deltaSharingGetTableMetadata', 'deltaSharingGetTableVersion', 'deltaSharingQueryTable', 'deltaSharingQueryTableChanges', 'deltaSharingQueriedTable',\n",
+        "'deltaSharingQueriedTableChanges', 'deltaSharingListNotebookFiles', 'deltaSharingQueryNotebookFile', 'deltaSharingListFunctions', 'deltaSharingListAllFunctions',\n",
+        "'deltaSharingListFunctionVersions', 'deltaSharingListVolumes', 'deltaSharingListAllVolumes') and event_date >= date_sub(current_date(),700)"
+      ]
+    },
+    {
+      "name": "2ad7bdd9",
+      "displayName": "Delta Sharing Usage Data",
+      "queryLines": [
+        "select *, regexp_extract(response.error_message, r\":(.*?):\", 1) errors, response.status_code status_code,\n",
+        "request_params.share_name, request_params.recipient_name, request_params.recipient_authentication_type share_type, request_params.is_ip_access_denied  from system.access.audit where service_name = \"unityCatalog\" and action_name in ('deltaSharingListShares', 'deltaSharingGetShare','deltaSharingListSchemas', 'deltaSharingListAllTables', 'deltaSharingListTables',\n",
+        "'deltaSharingGetTableMetadata', 'deltaSharingGetTableVersion', 'deltaSharingQueryTable', 'deltaSharingQueryTableChanges', 'deltaSharingQueriedTable',\n",
+        "'deltaSharingQueriedTableChanges', 'deltaSharingListNotebookFiles', 'deltaSharingQueryNotebookFile', 'deltaSharingListFunctions', 'deltaSharingListAllFunctions',\n",
+        "'deltaSharingListFunctionVersions', 'deltaSharingListVolumes', 'deltaSharingListAllVolumes') "
+      ]
+    },
+    {
+      "name": "c13e7f0f",
+      "displayName": "recipients",
+      "queryLines": [
+        "SELECT re.*, ip.allowed_ip_range, case when re.recipient_name not in (select distinct recipient_name FROM `system`.information_schema.share_recipient_privileges) then \"share not assigned\" else \"share assigned\" end share_status\n",
+        ", retrieval_status, token_status FROM (select * from system.information_schema.recipients where recipient_owner != 'System user') re LEFT JOIN  \n",
+        "(select recipient_name, collect_list(allowed_ip_range) allowed_ip_range  from system.information_schema.recipient_allowed_ip_ranges group by recipient_name)  ip\n",
+        "on re.recipient_name = ip.recipient_name LEFT JOIN (SELECT *,\n",
+        "case when activation_url is null then 'retrieved' else 'not retrieved' end as retrieval_status,\n",
+        "case when expiration_time > current_timestamp() and expiration_time <= date_add(current_timestamp(), 7) then 'expiring soon' else case when expiration_time < current_timestamp() then 'expired' else case when expiration_time > \"9999-12-31\" then \"never expire\" else 'not expiring soon' end end end as token_status FROM \n",
+        "(SELECT *\n",
+        "FROM (\n",
+        "    SELECT *,\n",
+        "           ROW_NUMBER() OVER (PARTITION BY recipient_name ORDER BY created DESC) as row_num\n",
+        "    FROM system.information_schema.recipient_tokens\n",
+        ")\n",
+        "WHERE row_num = 1)) to ON re.recipient_name = to.recipient_name"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "85eebdfa",
+      "displayName": "Summary",
+      "layout": [
+        {
+          "widget": {
+            "name": "4e7eac8d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "36f1eb84",
+                  "fields": [
+                    {
+                      "name": "count(share_name)",
+                      "expression": "COUNT(`share_name`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(share_name)",
+                  "displayName": "Count of share_name"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total Shares"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "d6460a76",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_name)",
+                      "expression": "COUNT(`recipient_name`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`token_status` IN ('expired')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_name)",
+                  "displayName": "Count of recipient_name"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Tokens Expired"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "57105f16",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_name)",
+                      "expression": "COUNT(`recipient_name`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`token_status` IN ('expiring soon')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_name)",
+                  "displayName": "Count of recipient_name"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Tokens Expiring in 7 days"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "1fc774ab",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_name)",
+                      "expression": "COUNT(`recipient_name`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`token_status` IN ('never expire')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_name)",
+                  "displayName": "Count of recipient_name"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Never Expiring Tokens"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "56789c10",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ee4342c9",
+                  "fields": [
+                    {
+                      "name": "errors",
+                      "expression": "`errors`"
+                    },
+                    {
+                      "name": "count(account_id)",
+                      "expression": "COUNT(`account_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`status_code` IN (400, 403, 404, 500)"
+                    },
+                    {
+                      "expression": "`share_type` IN ('DATABRICKS')"
+                    }
+                  ],
+                  "cubeGroupingSets": {
+                    "sets": [
+                      {
+                        "fieldNames": [
+                          "errors"
+                        ]
+                      },
+                      {}
+                    ]
+                  },
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "ASC",
+                      "expression": "`errors`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pivot",
+              "encodings": {
+                "rows": [
+                  {
+                    "fieldName": "errors",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "cell-reversed",
+                        "field": {
+                          "index": 0
+                        }
+                      }
+                    },
+                    "displayName": "Errors"
+                  }
+                ],
+                "cell": {
+                  "type": "multi-cell",
+                  "fields": [
+                    {
+                      "fieldName": "count(account_id)",
+                      "cellType": "text",
+                      "displayName": "Occurance"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2D Errors in last 7 days"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 4,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "2cfbe737",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ee4342c9",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "count(account_id)",
+                      "expression": "COUNT(`account_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`share_type` IN ('DATABRICKS')"
+                    }
+                  ],
+                  "cubeGroupingSets": {
+                    "sets": [
+                      {
+                        "fieldNames": [
+                          "share_name"
+                        ]
+                      },
+                      {}
+                    ]
+                  },
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "ASC",
+                      "expression": "`share_name`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pivot",
+              "encodings": {
+                "rows": [
+                  {
+                    "fieldName": "share_name",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "cell-reversed",
+                        "field": {
+                          "index": 0
+                        }
+                      }
+                    },
+                    "displayName": "Share Name"
+                  }
+                ],
+                "cell": {
+                  "type": "multi-cell",
+                  "fields": [
+                    {
+                      "fieldName": "count(account_id)",
+                      "cellType": "text",
+                      "format": {
+                        "type": "number-plain",
+                        "abbreviation": "none",
+                        "decimalPlaces": {
+                          "type": "exact",
+                          "places": 0
+                        },
+                        "hideGroupSeparator": true
+                      },
+                      "contentAlignment": "center",
+                      "displayName": "Times Accessed"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2D shares accessed in last 7 days"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "7c28bd34",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ee4342c9",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "count(account_id)",
+                      "expression": "COUNT(`account_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`share_type` IN ('DATABRICKS')"
+                    }
+                  ],
+                  "cubeGroupingSets": {
+                    "sets": [
+                      {
+                        "fieldNames": [
+                          "recipient_name"
+                        ]
+                      },
+                      {}
+                    ]
+                  },
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "ASC",
+                      "expression": "`recipient_name`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pivot",
+              "encodings": {
+                "rows": [
+                  {
+                    "fieldName": "recipient_name",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "cell-reversed",
+                        "field": {
+                          "index": 0
+                        }
+                      }
+                    },
+                    "displayName": "Recipient Name"
+                  }
+                ],
+                "cell": {
+                  "type": "multi-cell",
+                  "fields": [
+                    {
+                      "fieldName": "count(account_id)",
+                      "cellType": "text",
+                      "displayName": "Times Accessed"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2D recepients accessed in last 7 days"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 4,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "8212357f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ee4342c9",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "count(account_id)",
+                      "expression": "COUNT(`account_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`share_type` IN ('TOKEN')"
+                    }
+                  ],
+                  "cubeGroupingSets": {
+                    "sets": [
+                      {
+                        "fieldNames": [
+                          "share_name"
+                        ]
+                      },
+                      {}
+                    ]
+                  },
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "ASC",
+                      "expression": "`share_name`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pivot",
+              "encodings": {
+                "rows": [
+                  {
+                    "fieldName": "share_name",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "cell-reversed",
+                        "field": {
+                          "index": 0
+                        }
+                      }
+                    },
+                    "displayName": "Share Name"
+                  }
+                ],
+                "cell": {
+                  "type": "multi-cell",
+                  "fields": [
+                    {
+                      "fieldName": "count(account_id)",
+                      "cellType": "text",
+                      "format": {
+                        "type": "number-plain",
+                        "abbreviation": "none",
+                        "decimalPlaces": {
+                          "type": "exact",
+                          "places": 0
+                        },
+                        "hideGroupSeparator": true
+                      },
+                      "contentAlignment": "center",
+                      "displayName": "Times Accessed"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2O shares accessed in last 7 days"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "a123c5c7",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ee4342c9",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "count(account_id)",
+                      "expression": "COUNT(`account_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`share_type` IN ('TOKEN')"
+                    }
+                  ],
+                  "cubeGroupingSets": {
+                    "sets": [
+                      {
+                        "fieldNames": [
+                          "recipient_name"
+                        ]
+                      },
+                      {}
+                    ]
+                  },
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "ASC",
+                      "expression": "`recipient_name`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pivot",
+              "encodings": {
+                "rows": [
+                  {
+                    "fieldName": "recipient_name",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "cell-reversed",
+                        "field": {
+                          "index": 0
+                        }
+                      }
+                    },
+                    "displayName": "Recipient Name"
+                  }
+                ],
+                "cell": {
+                  "type": "multi-cell",
+                  "fields": [
+                    {
+                      "fieldName": "count(account_id)",
+                      "cellType": "text",
+                      "displayName": "Times Accessed"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2O recepients accessed in last 7 days"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 8,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "f9d6800f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_id)",
+                      "expression": "COUNT(`recipient_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_id)",
+                  "displayName": "Count of recipient_id"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total Recepients"
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "b47f9e45",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_id)",
+                      "expression": "COUNT(`recipient_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`authentication_type` IN ('TOKEN')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_id)",
+                  "displayName": "Count of recipient_id"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2O Recepients"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "eab7bc00",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_id)",
+                      "expression": "COUNT(`recipient_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`authentication_type` IN ('DATABRICKS')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_id)",
+                  "displayName": "Count of recipient_id"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2D Recepients"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "40dda028",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_id)",
+                      "expression": "COUNT(`recipient_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`allowed_ip_range` IN (null)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_id)",
+                  "displayName": "Count of recipient_id"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "No IP Access List"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "733d6aa8",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_id)",
+                      "expression": "COUNT(`recipient_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`share_status` IN ('share not assigned')"
+                    },
+                    {
+                      "expression": "`authentication_type` IN ('TOKEN')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_id)",
+                  "displayName": "Count of recipient_id"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2O Recepients without Shares"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "f1f00ed3",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_name)",
+                      "expression": "COUNT(`recipient_name`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`retrieval_status` IN ('not retrieved')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_name)",
+                  "displayName": "Count of recipient_name"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Not Activated"
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "3091739e",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "count(recipient_id)",
+                      "expression": "COUNT(`recipient_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`share_status` IN ('share not assigned')"
+                    },
+                    {
+                      "expression": "`authentication_type` IN ('DATABRICKS')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(recipient_id)",
+                  "displayName": "Count of recipient_id"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2D Recepients without Shares"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "ad592a8a",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ee4342c9",
+                  "fields": [
+                    {
+                      "name": "errors",
+                      "expression": "`errors`"
+                    },
+                    {
+                      "name": "count(account_id)",
+                      "expression": "COUNT(`account_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`status_code` IN (400, 403, 404, 500)"
+                    },
+                    {
+                      "expression": "`share_type` IN ('TOKEN')"
+                    }
+                  ],
+                  "cubeGroupingSets": {
+                    "sets": [
+                      {
+                        "fieldNames": [
+                          "errors"
+                        ]
+                      },
+                      {}
+                    ]
+                  },
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "ASC",
+                      "expression": "`errors`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pivot",
+              "encodings": {
+                "rows": [
+                  {
+                    "fieldName": "errors",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "cell-reversed",
+                        "field": {
+                          "index": 0
+                        }
+                      }
+                    },
+                    "displayName": "Errors"
+                  }
+                ],
+                "cell": {
+                  "type": "multi-cell",
+                  "fields": [
+                    {
+                      "fieldName": "count(account_id)",
+                      "cellType": "text",
+                      "displayName": "Occurance"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "D2O Errors in last 7 days"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 8,
+            "width": 2,
+            "height": 4
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "6ad9be2e",
+      "displayName": "Usage Detail",
+      "layout": [
+        {
+          "widget": {
+            "name": "a883375b",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "2ad7bdd9",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "source_ip_address",
+                      "expression": "`source_ip_address`"
+                    },
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "share_type",
+                      "expression": "`share_type`"
+                    },
+                    {
+                      "name": "status_code",
+                      "expression": "`status_code`"
+                    },
+                    {
+                      "name": "errors",
+                      "expression": "`errors`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "event_date",
+                    "dateTimeFormat": "YYYY-MM-DD",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "date",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 4,
+                    "title": "Date",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "event_date"
+                  },
+                  {
+                    "fieldName": "source_ip_address",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 5,
+                    "title": "Source IP",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "source_ip_address"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 17,
+                    "title": "Share Name",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "share_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 18,
+                    "title": "Recipient Name",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "recipient_name"
+                  },
+                  {
+                    "fieldName": "share_type",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 19,
+                    "title": "Share Type",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "share_type"
+                  },
+                  {
+                    "fieldName": "status_code",
+                    "numberFormat": "0",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 20,
+                    "title": "Status Code",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "status_code"
+                  },
+                  {
+                    "fieldName": "errors",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 21,
+                    "title": "Errors",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "errors"
+                  }
+                ]
+              },
+              "invisibleColumns": [
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "account_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 0,
+                  "title": "account_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "workspace_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 1,
+                  "title": "workspace_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "version",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 2,
+                  "title": "version",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "dateTimeFormat": "YYYY-MM-DD HH:mm:ss.SSS",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "event_time",
+                  "type": "datetime",
+                  "displayAs": "datetime",
+                  "order": 3,
+                  "title": "event_time",
+                  "allowSearch": false,
+                  "alignContent": "center",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "user_agent",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 6,
+                  "title": "user_agent",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "session_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 7,
+                  "title": "session_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "user_identity",
+                  "type": "complex",
+                  "displayAs": "json",
+                  "order": 8,
+                  "title": "user_identity",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "service_name",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 9,
+                  "title": "service_name",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "action_name",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 10,
+                  "title": "action_name",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "request_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 11,
+                  "title": "request_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "request_params",
+                  "type": "complex",
+                  "displayAs": "json",
+                  "order": 12,
+                  "title": "request_params",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "response",
+                  "type": "complex",
+                  "displayAs": "json",
+                  "order": 13,
+                  "title": "response",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "audit_level",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 14,
+                  "title": "audit_level",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "event_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 15,
+                  "title": "event_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "identity_metadata",
+                  "type": "complex",
+                  "displayAs": "json",
+                  "order": 16,
+                  "title": "identity_metadata",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "is_ip_access_denied",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 22,
+                  "title": "is_ip_access_denied",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                }
+              ],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "f492a69a",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_share_name",
+                "query": {
+                  "datasetName": "2ad7bdd9",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "share_name",
+                    "displayName": "share_name",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_share_name"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Share Name"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "1b269069",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_source_ip_address",
+                "query": {
+                  "datasetName": "2ad7bdd9",
+                  "fields": [
+                    {
+                      "name": "source_ip_address",
+                      "expression": "`source_ip_address`"
+                    },
+                    {
+                      "name": "source_ip_address_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "source_ip_address",
+                    "displayName": "source_ip_address",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_source_ip_address"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Source IP"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "d1440181",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_event_date",
+                "query": {
+                  "datasetName": "2ad7bdd9",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "event_date",
+                    "displayName": "event_date",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_event_date"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Date"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "1b32292f",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_share_type",
+                "query": {
+                  "datasetName": "2ad7bdd9",
+                  "fields": [
+                    {
+                      "name": "share_type",
+                      "expression": "`share_type`"
+                    },
+                    {
+                      "name": "share_type_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "share_type",
+                    "displayName": "share_type",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_share_type"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Share Type"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "afa63905",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_recipient_name",
+                "query": {
+                  "datasetName": "2ad7bdd9",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "recipient_name",
+                    "displayName": "recipient_name",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_recipient_name"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Recepient Name"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "9fc9649c",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_errors",
+                "query": {
+                  "datasetName": "2ad7bdd9",
+                  "fields": [
+                    {
+                      "name": "errors",
+                      "expression": "`errors`"
+                    },
+                    {
+                      "name": "errors_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "errors",
+                    "displayName": "errors",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe4260b4d18f68317648ca3622585_errors"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Errors"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "36eecf70",
+      "displayName": "Recipient Details",
+      "layout": [
+        {
+          "widget": {
+            "name": "70e481e6",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "authentication_type",
+                      "expression": "`authentication_type`"
+                    },
+                    {
+                      "name": "token_status",
+                      "expression": "`token_status`"
+                    },
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_owner",
+                      "expression": "`recipient_owner`"
+                    },
+                    {
+                      "name": "created",
+                      "expression": "`created`"
+                    },
+                    {
+                      "name": "allowed_ip_range",
+                      "expression": "`allowed_ip_range`"
+                    },
+                    {
+                      "name": "share_status",
+                      "expression": "`share_status`"
+                    },
+                    {
+                      "name": "retrieval_status",
+                      "expression": "`retrieval_status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "authentication_type",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 0,
+                    "title": "Authentication Type",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "authentication_type"
+                  },
+                  {
+                    "fieldName": "token_status",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 6,
+                    "title": "Token Status",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "token_status"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 7,
+                    "title": "Recipient Name",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_owner",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 9,
+                    "title": "Recipient Owner",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "recipient_owner"
+                  },
+                  {
+                    "fieldName": "created",
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss.SSS",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 10,
+                    "title": "created",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "created"
+                  },
+                  {
+                    "fieldName": "allowed_ip_range",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "complex",
+                    "displayAs": "json",
+                    "visible": true,
+                    "order": 13,
+                    "title": "Allowed IP Range",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "allowed_ip_range"
+                  },
+                  {
+                    "fieldName": "share_status",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 14,
+                    "title": "Share Status",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "share_status"
+                  },
+                  {
+                    "fieldName": "retrieval_status",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 15,
+                    "title": "Retrieval Status",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "retrieval_status"
+                  }
+                ]
+              },
+              "invisibleColumns": [
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "cloud",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 1,
+                  "title": "cloud",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "comment",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 2,
+                  "title": "comment",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "created_by",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 3,
+                  "title": "created_by",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "data_recipient_global_metastore_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 4,
+                  "title": "data_recipient_global_metastore_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "region",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 5,
+                  "title": "region",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "recipient_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 8,
+                  "title": "recipient_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "dateTimeFormat": "YYYY-MM-DD HH:mm:ss.SSS",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "last_altered",
+                  "type": "datetime",
+                  "displayAs": "datetime",
+                  "order": 11,
+                  "title": "last_altered",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "last_altered_by",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 12,
+                  "title": "last_altered_by",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                }
+              ],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "747e22ae",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe84e0d8f10c282475b7f4f19dcfc_recipient_name",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "recipient_name",
+                    "displayName": "recipient_name",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe84e0d8f10c282475b7f4f19dcfc_recipient_name"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Recipient Name"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "090f30f9",
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": []
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Authentication Type"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "8fc649a4",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe84e0d8f10c282475b7f4f19dcfc_token_status",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "token_status",
+                      "expression": "`token_status`"
+                    },
+                    {
+                      "name": "token_status_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "token_status",
+                    "displayName": "token_status",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe84e0d8f10c282475b7f4f19dcfc_token_status"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Token Status"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ]
+}
