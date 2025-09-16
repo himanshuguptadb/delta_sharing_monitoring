@@ -1,7 +1,4 @@
 # Delta Sharing Monitoring Dashboard — README
-
-This README documents the **Delta Sharing Monitoring** Lakeview dashboard defined by the JSON you provided. fileciteturn0file0
-
 ---
 
 ## What this is
