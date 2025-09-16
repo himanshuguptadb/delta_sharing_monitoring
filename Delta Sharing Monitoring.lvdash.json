@@ -2577,11 +2577,36 @@
         {
           "widget": {
             "name": "090f30f9",
+            "queries": [
+              {
+                "name": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe84e0d8f10c282475b7f4f19dcfc_authentication_type",
+                "query": {
+                  "datasetName": "c13e7f0f",
+                  "fields": [
+                    {
+                      "name": "authentication_type",
+                      "expression": "`authentication_type`"
+                    },
+                    {
+                      "name": "authentication_type_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
             "spec": {
               "version": 2,
               "widgetType": "filter-single-select",
               "encodings": {
-                "fields": []
+                "fields": [
+                  {
+                    "fieldName": "authentication_type",
+                    "displayName": "authentication_type",
+                    "queryName": "dashboards/01efe09063f2178c87582c03818166ca/datasets/01efe84e0d8f10c282475b7f4f19dcfc_authentication_type"
+                  }
+                ]
               },
               "frame": {
                 "showTitle": true,
