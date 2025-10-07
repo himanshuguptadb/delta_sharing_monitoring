@@ -252,7 +252,7 @@
                       "expression": "`status_code` IN (400, 403, 404, 500)"
                     },
                     {
-                      "expression": "`share_type` IN ('DATABRICKS')"
+                      "expression": "`share_type` IN ('DATABRICKS', 'OIDC_FEDERATION')"
                     }
                   ],
                   "cubeGroupingSets": {
@@ -338,7 +338,7 @@
                   ],
                   "filters": [
                     {
-                      "expression": "`share_type` IN ('DATABRICKS')"
+                      "expression": "`share_type` IN ('DATABRICKS', 'OIDC_FEDERATION')"
                     }
                   ],
                   "cubeGroupingSets": {
@@ -434,7 +434,7 @@
                   ],
                   "filters": [
                     {
-                      "expression": "`share_type` IN ('DATABRICKS')"
+                      "expression": "`share_type` IN ('DATABRICKS', 'OIDC_FEDERATION')"
                     }
                   ],
                   "cubeGroupingSets": {
@@ -783,7 +783,7 @@
                   ],
                   "filters": [
                     {
-                      "expression": "`authentication_type` IN ('DATABRICKS')"
+                      "expression": "`authentication_type` IN ('DATABRICKS', 'OIDC_FEDERATION')"
                     }
                   ],
                   "disaggregated": false
@@ -969,7 +969,7 @@
                       "expression": "`share_status` IN ('share not assigned')"
                     },
                     {
-                      "expression": "`authentication_type` IN ('DATABRICKS')"
+                      "expression": "`authentication_type` IN ('DATABRICKS', 'OIDC_FEDERATION')"
                     }
                   ],
                   "disaggregated": false
